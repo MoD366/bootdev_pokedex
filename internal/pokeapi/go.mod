@@ -1,3 +1,3 @@
-module github.com/mod366/bootdev_pokedex/internal/pokeapi
+module github.com/MoD366/pokeapi
 
 go 1.25.0
