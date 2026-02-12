@@ -101,7 +101,7 @@ func commandMap(conf *config) error {
 		url = conf.next 
 	}
 
-	response, err := pokeapi.CallPokeapi(url)
+	response, err := pokeapi.CallPokeapiLocation(url)
 	
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func commandMapb(conf *config) error {
 
 	url := conf.prev
 
-	response, err := pokeapi.CallPokeapi(url)
+	response, err := pokeapi.CallPokeapiLocation(url)
 	
 	if err != nil {
 		return err
