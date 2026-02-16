@@ -1,60 +1,64 @@
 package main
 
-import(
-	"strings"
-	"fmt"
+import (
 	"bufio"
-	"os"
-	"github.com/MoD366/pokeapi"
 	"errors"
+	"fmt"
+	"math/rand"
+	"os"
+	"strings"
+	"time"
+
+	//"time"
+
+	"github.com/MoD366/pokeapi"
+	//"github.com/MoD366/pokecache"
 )
 
 type cliCommand struct {
-	name string
+	name        string
 	description string
-	callback func(*config) error
-}
-
-type config struct {
-	next string
-	prev string
+	callback    func(*pokeapi.Config, string) error
 }
 
 func getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"help": {
-			name: "help",
+			name:        "help",
 			description: "Displays this help message",
-			callback: commandHelp,
+			callback:    commandHelp,
 		},
 		"map": {
-			name: "map",
+			name:        "map",
 			description: "Show the next 20 locations",
-			callback: commandMap,
+			callback:    commandMap,
 		},
 		"mapb": {
-			name: "mapb",
+			name:        "mapb",
 			description: "Show the previous 20 locations",
-			callback: commandMapb,
+			callback:    commandMapb,
+		},
+		"explore": {
+			name:        "explore",
+			description: "Show the Pokemon available at specific location",
+			callback:    commandExplore,
+		},
+		"catch": {
+			name:        "catch",
+			description: "Try to catch a Pokemon",
+			callback:    commandCatch,
 		},
 		"exit": {
-			name: "exit",
+			name:        "exit",
 			description: "Exit the Pokedex",
-			callback: commandExit,
+			callback:    commandExit,
 		},
-
 	}
 }
 
-func startRepl() {
+func startRepl(conf *pokeapi.Config) {
 
 	scanner := bufio.NewScanner(os.Stdin)
-
-	conf := config{
-		next: "",
-		prev: "",
-	}
-
 
 	for {
 		fmt.Print("Pokedex >")
@@ -68,7 +72,11 @@ func startRepl() {
 			commands := getCommands()
 
 			if comm, ok := commands[cleanedInput[0]]; ok == true {
-				err := comm.callback(&conf)
+				arg := ""
+				if len(cleanedInput) > 1 {
+					arg = cleanedInput[1]
+				}
+				err := comm.callback(conf, arg)
 				if err != nil {
 					fmt.Printf("Error running %s: %s\n", comm.name, err)
 				}
@@ -79,13 +87,13 @@ func startRepl() {
 	}
 }
 
-func commandExit(conf *config) error {
+func commandExit(conf *pokeapi.Config, arg string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(conf *config) error {
+func commandHelp(conf *pokeapi.Config, arg string) error {
 	fmt.Printf("Welcome to the Pokedex!\nUsage:\n\n")
 
 	for _, val := range getCommands() {
@@ -94,15 +102,15 @@ func commandHelp(conf *config) error {
 	return nil
 }
 
-func commandMap(conf *config) error {
+func commandMap(conf *pokeapi.Config, arg string) error {
 	url := "https://pokeapi.co/api/v2/location-area/"
-	
-	if conf.next != "" {
-		url = conf.next 
+
+	if conf.Next != "" {
+		url = conf.Next
 	}
 
-	response, err := pokeapi.CallPokeapiLocation(url)
-	
+	response, err := pokeapi.CallPokeapiLocation(url, conf)
+
 	if err != nil {
 		return err
 	}
@@ -111,23 +119,23 @@ func commandMap(conf *config) error {
 		fmt.Println(loc.Name)
 	}
 
-	conf.next = *response.Next
+	conf.Next = *response.Next
 	if response.Prev != nil {
-		conf.prev = *response.Prev
+		conf.Prev = *response.Prev
 	}
 
 	return nil
 }
 
-func commandMapb(conf *config) error {
-	if conf.prev == "" {
+func commandMapb(conf *pokeapi.Config, arg string) error {
+	if conf.Prev == "" {
 		return errors.New("you're on the first page")
 	}
 
-	url := conf.prev
+	url := conf.Prev
 
-	response, err := pokeapi.CallPokeapiLocation(url)
-	
+	response, err := pokeapi.CallPokeapiLocation(url, conf)
+
 	if err != nil {
 		return err
 	}
@@ -135,23 +143,65 @@ func commandMapb(conf *config) error {
 	for _, loc := range response.Results {
 		fmt.Println(loc.Name)
 	}
-	conf.next = *response.Next
+	conf.Next = *response.Next
 	if response.Prev != nil {
-		conf.prev = *response.Prev
+		conf.Prev = *response.Prev
 	} else {
-		conf.prev = ""
+		conf.Prev = ""
+	}
+
+	return nil
+}
+
+func commandExplore(conf *pokeapi.Config, arg string) error {
+	url := "https://pokeapi.co/api/v2/location-area/" + arg
+
+	response, err := pokeapi.CallPokeapiEncounters(url, conf)
+
+	if err != nil {
+		return err
+	}
+
+	for _, mon := range response.PokemonEncounters {
+		fmt.Println(mon.Pokemon.Name)
+	}
+
+	return nil
+}
+
+func commandCatch(conf *pokeapi.Config, arg string) error {
+	url := "https://pokeapi.co/api/v2/pokemon/" + arg
+
+	response, err := pokeapi.CallPokeapiPokemon(url, conf)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...", arg)
+
+	randomizer := rand.New(rand.NewSource(time.Now().Unix()))
+
+	randomNumber := randomizer.Intn(500)
+
+	fmt.Println("Random number generated was", randomNumber, "has to be at least", response.BaseExperience, "to catch successfully.")
+
+	if randomNumber >= response.BaseExperience {
+		fmt.Println(arg, "was caught!")
+	} else {
+		fmt.Println(arg, "escaped!")
 	}
 
 	return nil
 }
 
 func cleanInput(text string) []string {
-	
+
 	if text == "" {
 		return []string{}
 	}
 
 	result := strings.Fields(strings.ToLower(text))
-	
+
 	return result
 }
