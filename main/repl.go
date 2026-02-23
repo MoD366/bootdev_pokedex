@@ -48,6 +48,16 @@ func getCommands() map[string]cliCommand {
 			description: "Try to catch a Pokemon",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect",
+			description: "Show data of caught Pokemon",
+			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "List caught Pokemon",
+			callback:    commandPokedex,
+		},
 		"exit": {
 			name:        "exit",
 			description: "Exit the Pokedex",
@@ -178,7 +188,7 @@ func commandCatch(conf *pokeapi.Config, arg string) error {
 		return err
 	}
 
-	fmt.Printf("Throwing a Pokeball at %s...", arg)
+	fmt.Printf("Throwing a Pokeball at %s...\n", arg)
 
 	randomizer := rand.New(rand.NewSource(time.Now().Unix()))
 
@@ -190,6 +200,48 @@ func commandCatch(conf *pokeapi.Config, arg string) error {
 		fmt.Println(arg, "was caught!")
 	} else {
 		fmt.Println(arg, "escaped!")
+	}
+
+	return nil
+}
+
+func commandInspect(conf *pokeapi.Config, arg string) error {
+	mon, ok := pokeapi.Dex[arg]
+
+	if !ok {
+		returnstring := "You haven't caught " + arg + " yet!\n"
+		return errors.New(returnstring)
+	}
+
+	fmt.Printf("Name: %v\n", mon.Name)
+	fmt.Printf("Weight: %v\n", mon.Weight)
+	fmt.Printf("Height: %v\n", mon.Height)
+	fmt.Printf("Stats:\n  -HP: %v\n  -Attack: %v\n  -Defense: %v\n  -SpecialAttack: %v\n  -SpecialDefense: %v\n  -Speed: %v\n", mon.Stats[0].BaseStat, mon.Stats[1].BaseStat, mon.Stats[2].BaseStat, mon.Stats[3].BaseStat, mon.Stats[4].BaseStat, mon.Stats[5].BaseStat)
+	if len(mon.Types) == 1 {
+		fmt.Printf("Type: %v\n", mon.Types[0].Type.Name)
+	} else {
+		fmt.Printf("Types:\n  - %v\n  - %v\n", mon.Types[0].Type.Name, mon.Types[1].Type.Name)
+	}
+	/*val := reflect.ValueOf(mon)
+	typeOfStruct := val.Type()
+
+	for i := 0; i < val.NumField(); i++ {
+		fmt.Printf("%s: %v\n", typeOfStruct.Field(i).Name, val.Field(i).Interface())
+	}*/
+
+	return nil
+}
+
+func commandPokedex(conf *pokeapi.Config, arg string) error {
+
+	if len(pokeapi.Dex) == 0 {
+		fmt.Println("Your Pokedex is empty. Try catching some Pokemon.")
+		return nil
+	}
+	fmt.Println("Your Pokedex:")
+
+	for key, _ := range pokeapi.Dex {
+		fmt.Printf("  - %v\n", key)
 	}
 
 	return nil
